@@ -28,9 +28,9 @@ object binary_values {
      *
      * for all `a`, `b`, `c`.
      */
-    type SomeType
+    type SomeType = String
 
-    def compose(left: SomeType, right: SomeType): SomeType = ???
+    def compose(left: SomeType, right: SomeType): SomeType = left + right
   }
 
   object Exercise2 {
@@ -113,6 +113,8 @@ object binary_values {
      *
      * Choose or create a different type such that your implementation
      * of `compose` represents modeling "both".
+     *
+     * List concatenation
      */
     type SomeType
 
@@ -128,6 +130,9 @@ object binary_values {
      * of `compose` represents modeling "or". For example, if you have
      * a data type that represents a query, then this `compose` could
      * model running one query, but if it fails, running another.
+     *
+     * Option.orElse
+     * Either.orElse
      */
     type SomeType
 
@@ -160,6 +165,8 @@ object binary_values {
      * }}}
      *
      * for all `a`.
+     *
+     * Quiz with EmptyQuiz
      */
     type SomeType
 
@@ -246,9 +253,9 @@ object binary_tcs {
      *
      * for all `a`, `b`, `c`, where `~` means "equivalent to".
      */
-    type SomeType[A]
+    type SomeType[A] = List[A]
 
-    def compose[A, B](left: SomeType[A], right: SomeType[B]): SomeType[Either[A, B]] = ???
+    def compose[A, B](left: SomeType[A], right: SomeType[B]): SomeType[Either[A, B]] = left.map(Left(_)) ++ right.map(Right(_))
   }
 
   object Exercise4 {

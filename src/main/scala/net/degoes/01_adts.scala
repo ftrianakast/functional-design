@@ -2,6 +2,11 @@ package net.degoes
 
 import java.time.Instant
 
+import net.degoes.cms.User
+import net.degoes.credit_card.DeGoesSolution.Price
+import net.degoes.credit_card.PricingScheme
+import net.degoes.events.{DeviceEvent, Event, UserEvent}
+
 /*
  * INTRODUCTION
  *
@@ -32,6 +37,33 @@ object credit_card {
    */
   type CreditCard
 
+  case class CreditCardProduct(number: Int, name: String, expirationDate: Long, securityCode: SecurityCode)
+
+  sealed trait SecurityCode
+  object SecurityCode {
+    final case class Four(_1: Digit, _2: Digit, _3: Digit, _4: Digit) extends SecurityCode
+    final case class Three(_1: Digit, _2: Digit, _3: Digit) extends SecurityCode
+  }
+
+  /// This is not very practical but you can use two things
+  // 1. Smart constructor
+  // 2. Refine library
+  sealed trait Digit
+  object Digit {
+    case object `0` extends Digit
+    case object `1` extends Digit
+    case object `2` extends Digit
+    case object `3` extends Digit
+  }
+
+  sealed abstract class SecurityCodeSafe private (value: Int)
+  object SecurityCodeSafe {
+    // With smart constructor the return type could be Either[CreditCardError, SecurityCode] but we should avoid
+    // because option is the minimal representation
+
+    def fromInt(int: Int): Option[SecurityCodeSafe] =
+      if(int.toString.length >= 3 && int.toString.length <=4) Some (new SecurityCodeSafe(int){}) else None
+  }
   /**
    * EXERCISE 2
    *
@@ -40,7 +72,50 @@ object credit_card {
    * or a digital product, such as a book or movie, or access to an event, such
    * as a music concert or film showing.
    */
-  type Product
+  object MySolution {
+    //type Product
+    sealed trait Product
+    sealed trait DigitalProduct extends Product
+    object Product {
+      final case class GallonOfMilk() extends Product
+      final case class Book() extends DigitalProduct
+      final case class Movie() extends DigitalProduct
+    }
+  }
+
+  object TheStore {
+    final case class Product(id: String, price: Price, productType: ProductType)
+
+    sealed trait ProductType
+    object ProductType {
+      final case class Book(isbn: String, title: String, author: String) extends ProductType
+      final case class Drink(name: String, quantity: Quantity) extends ProductType
+      final case class Movie(title: String, actors: Seq[String]) extends ProductType
+    }
+
+    type Quantity
+    type Price
+  }
+
+  object SomeOtherExample {
+    final case class Product(id: String, price: Price, productType: ProductType) { self => {
+      def increasePrice: Product = self.copy(price = self.price)
+    }}
+
+    sealed trait ProductType
+    object ProductType {
+      final case class Book(isbn: String, title: String, author: String) extends ProductType
+      final case class Drink(name: String, quantity: Quantity) extends ProductType
+      final case class Movie(title: String, actors: Seq[String]) extends ProductType
+    }
+
+    def increasePrice(product: Product): Product =
+      product.copy(price = product.price)
+
+    type Quantity
+    type Price
+  }
+
 
   /**
    * EXERCISE 3
@@ -49,7 +124,20 @@ object credit_card {
    * of a product price, which could be one-time purchase fee, or a recurring
    * fee on some regular interval.
    */
-  type PricingScheme
+  //type PricingScheme
+  sealed trait PricingScheme
+  object PricingScheme {
+    final case class OneTime(amount: Price) extends PricingScheme
+    final case class RegularInterval(amount: Price, start: java.time.Instant, interval: java.time.Instant) extends PricingScheme
+  }
+
+  object PricingSchemeRefactored {
+
+    case class PricingScheme(amount: Price, pricingRecurrence: PricingRecurrence)
+    sealed trait PricingRecurrence
+    final case class OneTime(amount: Price) extends PricingRecurrence
+    final case class RegularInterval(amount: Price, start: java.time.Instant, interval: java.time.Instant) extends PricingRecurrence
+  }
 }
 
 /**
@@ -94,6 +182,64 @@ object events {
       with UserEvent
 
   class UserAccountCreated(id: Int, val userName: String, val time: Instant) extends Event(id) with UserEvent
+
+
+  object FunctionalEvent {
+
+    final case class Event(id: Int, time: Instant, sourcedEvent: SourcedEvent)
+
+    sealed trait SourcedEvent
+    final case class DeviceEvent(deviceId: Int, specificEvent: SpecificEvent) extends SourcedEvent
+    final case class UserEvent(userName: String) extends SourcedEvent
+
+    sealed trait SpecificEvent
+    final case class SensorUpdated(reading: Option[Double]) extends SpecificEvent
+    final case class DeviceActivated() extends SpecificEvent
+  }
+
+  object otherSolution {
+    final case class Event(id: Int, time: Instant, `type`: EventType)
+
+    sealed trait EventType
+    object EventType {
+      final case class DeviceEvent(deviceId: Int, `type`: DeviceEventType) extends EventType
+      final case class UserEvent(userName: String, `type`: UserEventType)  extends EventType
+    }
+
+    sealed trait DeviceEventType
+
+    object DeviceEventType {
+
+      case object DeviceActivated                             extends DeviceEventType
+      final case class SensorUpdated(reading: Option[Double]) extends DeviceEventType
+    }
+
+    sealed trait UserEventType
+
+    object UserEventType {
+      final case class UserPurchase(item: String, price: Double) extends UserEventType
+      case object UserAccountCreated                             extends UserEventType
+    }
+  }
+
+  object DeGoesSolution {
+
+    final case class Event[+A](id: Int, time: Instant, payload: A)
+
+    final case class UserEvent(userName: String, userEventType: UserEventType)
+    sealed trait UserEventType
+    object UserEventType {
+      final case class Purchase(item: String, price: Double) extends UserEventType
+      final case object AccountCreated extends  UserEventType
+    }
+
+    final case class DeviceEvent(deviceId: Int, deviceEventType: DeviceEventType)
+    sealed trait DeviceEventType
+    object DeviceEventType {
+      final case class SensorUpdated(reading: Option[Double]) extends DeviceEventType
+      case object DeviceActivated extends  DeviceEventType
+    }
+  }
 
 }
 

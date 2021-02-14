@@ -1,5 +1,7 @@
 package net.degoes
 
+import zio.ZIO
+
 /*
  * INTRODUCTION
  *
@@ -76,6 +78,8 @@ object expr {
      * handle the new operation.
      */
     final case class StartsWith()
+
+    ZIO.succeed()
   }
 
   import CalculatedValue._

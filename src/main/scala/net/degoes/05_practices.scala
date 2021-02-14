@@ -53,26 +53,21 @@ object email_filter3 {
   sealed trait EmailFilter { self =>
     def &&(that: EmailFilter): EmailFilter = EmailFilter.And(self, that)
 
-    def ||(that: EmailFilter): EmailFilter = EmailFilter.InclusiveOr(self, that)
+    def ||(that: EmailFilter): EmailFilter = !(!self && !that)
 
-    def ^^(that: EmailFilter): EmailFilter = EmailFilter.ExclusiveOr(self, that)
+    def ^^(that: EmailFilter): EmailFilter = (self || that) && !(self && that)
+
+    def unary_! = EmailFilter.Not(self)
   }
   object EmailFilter {
-    final case object Always                                            extends EmailFilter
-    final case object Never                                             extends EmailFilter
-    final case class And(left: EmailFilter, right: EmailFilter)         extends EmailFilter
-    final case class InclusiveOr(left: EmailFilter, right: EmailFilter) extends EmailFilter
-    final case class ExclusiveOr(left: EmailFilter, right: EmailFilter) extends EmailFilter
-    final case class SenderEquals(target: Address)                      extends EmailFilter
-    final case class SenderNotEquals(target: Address)                   extends EmailFilter
-    final case class RecipientEquals(target: Address)                   extends EmailFilter
-    final case class RecipientNotEquals(target: Address)                extends EmailFilter
-    final case class SenderIn(targets: Set[Address])                    extends EmailFilter
-    final case class RecipientIn(targets: Set[Address])                 extends EmailFilter
-    final case class BodyContains(phrase: String)                       extends EmailFilter
-    final case class BodyNotContains(phrase: String)                    extends EmailFilter
-    final case class SubjectContains(phrase: String)                    extends EmailFilter
-    final case class SubjectNotContains(phrase: String)                 extends EmailFilter
+    final case object Always                                    extends EmailFilter
+    final case object Never                                     extends EmailFilter
+    final case class Not(value: EmailFilter)                    extends EmailFilter
+    final case class And(left: EmailFilter, right: EmailFilter) extends EmailFilter
+    final case class SenderEquals(target: Address)              extends EmailFilter
+    final case class RecipientEquals(target: Address)           extends EmailFilter
+    final case class BodyContains(phrase: String)               extends EmailFilter
+    final case class SubjectContains(phrase: String)            extends EmailFilter
 
     val always: EmailFilter = Always
 
@@ -80,23 +75,25 @@ object email_filter3 {
 
     def senderIs(sender: Address): EmailFilter = SenderEquals(sender)
 
-    def senderIsNot(sender: Address): EmailFilter = SenderNotEquals(sender)
+    def senderIsNot(sender: Address): EmailFilter = !senderIs(sender)
 
     def recipientIs(recipient: Address): EmailFilter = RecipientEquals(recipient)
 
-    def recipientIsNot(recipient: Address): EmailFilter = RecipientNotEquals(recipient)
+    def recipientIsNot(recipient: Address): EmailFilter = !recipientIs(recipient)
 
-    def senderIn(senders: Set[Address]): EmailFilter = SenderIn(senders)
+    def senderIn(senders: Set[Address]): EmailFilter =
+      senders.foldLeft(never)((acc, address) => acc || senderIs(address))
 
-    def recipientIn(recipients: Set[Address]): EmailFilter = RecipientIn(recipients)
+    def recipientIn(recipients: Set[Address]): EmailFilter =
+      recipients.foldLeft(never)((acc, address) => acc || recipientIs(address))
 
     def bodyContains(phrase: String): EmailFilter = BodyContains(phrase)
 
-    def bodyDoesNotContain(phrase: String): EmailFilter = BodyNotContains(phrase)
+    def bodyDoesNotContain(phrase: String): EmailFilter = !bodyContains(phrase)
 
     def subjectContains(phrase: String): EmailFilter = SubjectContains(phrase)
 
-    def subjectDoesNotContain(phrase: String): EmailFilter = SubjectNotContains(phrase)
+    def subjectDoesNotContain(phrase: String): EmailFilter = !subjectContains(phrase)
   }
 }
 
@@ -122,4 +119,52 @@ object ui_components {
 
     def draw(): Unit
   }
+
+  object excutable {
+    final case class Turtle2(exec: Turtle => Unit) { self =>
+      def ++(that: Turtle2): Turtle2 =
+        Turtle2 { t =>
+          self.exec(t)
+          that.exec(t)
+        }
+    }
+    object Turtle2 {
+      def turnLeft(degrees: Int)  = Turtle2(_.turnLeft(degrees))
+      def turnRight(degrees: Int) = Turtle2(_.turnRight(degrees))
+      val goForward: Turtle2      = Turtle2(_.goForward())
+      val goBackward: Turtle2     = Turtle2(_.goBackward())
+      val draw: Turtle2           = Turtle2(_.draw())
+    }
+  }
+
+  object declarative {
+    trait Turtle { self =>
+      def andThen(that: Turtle): Turtle = Turtle.And(self, that)
+    }
+
+    object Turtle {
+
+      final case object TurnLeft                 extends Turtle
+      final case object GoForward                extends Turtle
+      final case object GoBack                   extends Turtle
+      final case object Draw                     extends Turtle
+      final case class And(l: Turtle, r: Turtle) extends Turtle
+
+      def idle: Turtle = goForward andThen goBackwardd
+
+      def goForward(distance: Int): Turtle = (1 to distance).foldLeft(idle)((acc, _) => acc andThen goForward)
+
+      val goForward: Turtle = GoForward
+
+      def goBackwardd(distance: Int): Turtle = (1 to distance).foldLeft(idle)((acc, _) => acc andThen goBackward)
+
+      val goBackward: Turtle = GoBack
+
+      def turnLeft: Turtle = TurnLeft
+
+      def turnRight(deg: Int): Turtle = (1 to deg).foldLeft(idle)((acc, _) => acc andThen turnLeft)
+
+    }
+  }
+
 }
